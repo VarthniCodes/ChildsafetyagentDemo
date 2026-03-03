@@ -3,53 +3,48 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# Simulated database: We ONLY store risk events, not full chats.
+# Storage for the Parent Dashboard
 risk_events = []
 
-# Simple Risk Detection Engine
-# In a real app, this would use an AI model like Perspective API or a custom LLM
-BANNED_KEYWORDS = {
-    "grooming": ["don't tell your parents", "send me a photo", "our secret"],
-    "bullying": ["loser", "kill yourself", "hate you"],
-    "self-harm": ["hurt myself", "end it all"]
+# AI Risk Engine (Expanded)
+RISK_PATTERNS = {
+    "GROOMING": ["secret", "don't tell", "meet me", "send photo", "address"],
+    "BULLYING": ["ugly", "stupid", "hate you", "loser", "kill yourself"],
 }
 
-def analyze_text(text):
-    text = text.lower()
-    for category, keywords in BANNED_KEYWORDS.items():
-        for word in keywords:
-            if word in text:
-                return category
-    return None
-
 @app.route('/')
-def dashboard():
-    # Sort events by newest first
-    sorted_events = sorted(risk_events, key=lambda x: x['timestamp'], reverse=True)
-    return render_template('dashboard.html', events=sorted_events)
+def parent_dashboard():
+    return render_template('dashboard.html', events=risk_events)
 
-@app.route('/monitor', methods=['POST'])
-def monitor_message():
-    """
-    Simulates a message being sent from a child's device.
-    """
+@app.route('/child-sim')
+def child_simulation():
+    return render_template('child_ui.html')
+
+@app.route('/process_chat', methods=['POST'])
+def process_chat():
     data = request.json
-    message_text = data.get("message", "")
+    sender = data.get("sender") # "Stranger" or "Child"
+    message = data.get("message", "").lower()
     
-    risk_found = analyze_text(message_text)
-    
-    if risk_found:
-        event = {
-            "id": len(risk_events) + 1,
-            "category": risk_found.upper(),
-            "snippet": f"...{message_text[-20:]}", # Only store a small snippet for context
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "status": "Action Required"
-        }
-        risk_events.append(event)
-        return jsonify({"status": "alert", "nudge": "Hey, stay safe! Remember not to share secrets with strangers."})
-    
-    return jsonify({"status": "clear"})
+    response = {"status": "ok", "nudge": None}
+
+    # Only analyze messages coming FROM the Stranger
+    if sender == "Stranger":
+        for category, keywords in RISK_PATTERNS.items():
+            if any(word in message for word in keywords):
+                # 1. Trigger the Alert for Parents
+                risk_events.append({
+                    "category": category,
+                    "snippet": message[:30] + "...",
+                    "timestamp": datetime.now().strftime("%H:%M:%S")
+                })
+                # 2. Trigger the Nudge for the Child
+                response = {
+                    "status": "risk_detected",
+                    "nudge": "🚩 Neoclaw Tip: Be careful! It's never okay for someone to ask you to keep secrets from your parents."
+                }
+                
+    return jsonify(response)
 
 if __name__ == '__main__':
     app.run(debug=True)
