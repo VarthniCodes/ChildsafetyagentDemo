@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Neoclaw | Simulation</title>
+    <style>
+        body { font-family: 'Segoe UI'; background: #e5ddd5; display: flex; flex-direction: column; align-items: center; height: 100vh; margin: 0; }
+        #chat-window { width: 350px; height: 500px; background: white; margin-top: 20px; border-radius: 15px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        #messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; }
+        .msg { padding: 8px 12px; margin: 5px; border-radius: 10px; max-width: 80%; font-size: 14px; }
+        .stranger { background: #f1f0f0; align-self: flex-start; }
+        .child { background: #dcf8c6; align-self: flex-end; }
+        .nudge { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; align-self: center; text-align: center; font-size: 12px; font-weight: bold; width: 90%; }
+        #input-area { padding: 15px; border-top: 1px solid #ddd; display: flex; gap: 5px; }
+        input { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 20px; }
+        button { border: none; background: #075e54; color: white; padding: 8px 15px; border-radius: 20px; cursor: pointer; }
+        .role-picker { margin-top: 20px; padding: 10px; background: white; border-radius: 10px; }
+    </style>
+</head>
+<body>
+    <div class="role-picker">
+        Acting as: <select id="role">
+            <option value="Stranger">Stranger (The Risk)</option>
+            <option value="Child">Child (The User)</option>
+        </select>
+    </div>
+
+    <div id="chat-window">
+        <div style="background:#075e54; color:white; padding:10px; text-align:center; font-weight:bold;">Chat Simulator</div>
+        <div id="messages"></div>
+        <div id="input-area">
+            <input type="text" id="msgInput" placeholder="Type a message...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <p><a href="/">Go to Parent Dashboard</a></p>
+
+    <script>
+        async function sendMessage() {
+            const role = document.getElementById('role').value;
+            const text = document.getElementById('msgInput').value;
+            if (!text) return;
+
+            // Display message in UI
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `msg ${role.toLowerCase()}`;
+            msgDiv.innerText = text;
+            document.getElementById('messages').appendChild(msgDiv);
+            document.getElementById('msgInput').value = '';
+
+            // Send to Neoclaw Engine
+            const response = await fetch('/process_chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ sender: role, message: text })
+            });
+            
+            const data = await response.json();
+            
+            // Show Nudge if risk detected
+            if (data.nudge) {
+                setTimeout(() => {
+                    const nudgeDiv = document.createElement('div');
+                    nudgeDiv.className = 'msg nudge';
+                    nudgeDiv.innerText = data.nudge;
+                    document.getElementById('messages').appendChild(nudgeDiv);
+                }, 600);
+            }
+        }
+    </script>
+</body>
+</html>
