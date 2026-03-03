@@ -3,46 +3,50 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# Storage for the Parent Dashboard
+# Only storing risk events for privacy-first compliance
 risk_events = []
 
-# AI Risk Engine (Expanded)
-RISK_PATTERNS = {
-    "GROOMING": ["secret", "don't tell", "meet me", "send photo", "address"],
-    "BULLYING": ["ugly", "stupid", "hate you", "loser", "kill yourself"],
-}
+# Logic for different types of risk
+STRANGER_RISKS = ["secret", "meet me", "don't tell", "send pic"]
+CHILD_BULLYING = ["hate you", "loser", "stupid", "ugly", "shut up"]
 
 @app.route('/')
 def parent_dashboard():
-    return render_template('dashboard.html', events=risk_events)
+    # Sort events so newest is on top
+    sorted_events = sorted(risk_events, key=lambda x: x['timestamp'], reverse=True)
+    return render_template('dashboard.html', events=sorted_events)
 
-@app.route('/child-sim')
-def child_simulation():
+@app.route('/child-device')
+def child_device():
     return render_template('child_ui.html')
 
-@app.route('/process_chat', methods=['POST'])
-def process_chat():
+@app.route('/process_message', methods=['POST'])
+def process_message():
     data = request.json
-    sender = data.get("sender") # "Stranger" or "Child"
+    sender = data.get("sender")
     message = data.get("message", "").lower()
     
-    response = {"status": "ok", "nudge": None}
+    response = {"status": "clear", "nudge": ""}
 
-    # Only analyze messages coming FROM the Stranger
     if sender == "Stranger":
-        for category, keywords in RISK_PATTERNS.items():
-            if any(word in message for word in keywords):
-                # 1. Trigger the Alert for Parents
-                risk_events.append({
-                    "category": category,
-                    "snippet": message[:30] + "...",
-                    "timestamp": datetime.now().strftime("%H:%M:%S")
-                })
-                # 2. Trigger the Nudge for the Child
-                response = {
-                    "status": "risk_detected",
-                    "nudge": "🚩 Neoclaw Tip: Be careful! It's never okay for someone to ask you to keep secrets from your parents."
-                }
+        # Check for Grooming/Predatory behavior
+        if any(word in message for word in STRANGER_RISKS):
+            alert = {"category": "GROOMING RISK", "snippet": message, "timestamp": datetime.now().strftime("%H:%M:%S")}
+            risk_events.append(alert)
+            response = {
+                "status": "danger",
+                "nudge": "🚩 Neoclaw: This person is asking for secrets. Please reach out to your parents immediately."
+            }
+            
+    elif sender == "Child":
+        # Check for Bullying behavior
+        if any(word in message for word in CHILD_BULLYING):
+            alert = {"category": "CHILD BULLYING", "snippet": message, "timestamp": datetime.now().strftime("%H:%M:%S")}
+            risk_events.append(alert)
+            response = {
+                "status": "warning",
+                "nudge": "💡 Neoclaw: Think before you hurt others. Is this message kind?"
+            }
                 
     return jsonify(response)
 
